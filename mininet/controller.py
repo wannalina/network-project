@@ -97,7 +97,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
                 priority=1, match=match)
             datapath.send_msg(mod)
 
-    # event handler to set up stp config dynamically (called upon switch connection event  )
+    # event handler to set up stp config dynamically (called upon switch connection event)
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def _stp_switch_connected(self, ev):
         dpid = ev.dp.id
