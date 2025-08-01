@@ -1,5 +1,6 @@
 # this controller is adapted from the ryu simple_switch_13_step.py
 
+import json
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
@@ -13,6 +14,7 @@ from ryu.app import simple_switch_13
 from ryu.app.wsgi import ControllerBase, route
 from ryu.app.wsgi import WSGIApplication
 import time
+from webob import Response
 
 
 class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
@@ -183,12 +185,21 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
                         dpid_str, ev.port_no, of_state[ev.port_state])
 
 
+
 # Intent API for Ryu controller
 class IntentAPI(ControllerBase):
     def __init__(self, req, link, data, **config):
         super(IntentAPI, self).__init__(req, link, data, **config)
         self.controller = data['controller']
 
+
     @route('intent', '/intent/get-state', methods=['GET'])
     def get_state(self, req, **kwargs):
+        state = self.controller.get_network_state()
+        res_body = json.dumps(state).encode('utf-8')
+        return Response(content_type='application/json', body=res_body)
+
+
+    @route('intent', '/intent/implement', methods=['POST'])
+    def post_action():
         return
