@@ -2,7 +2,7 @@
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
-from ryu.controller.handler import MAIN_DISPATCHER
+from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib import dpid as dpid_lib
@@ -98,7 +98,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
             datapath.send_msg(mod)
 
     # event handler to set up stp config dynamically (called upon switch connection event  )
-    @set_ev_cls(stplib.EventDP, MAIN_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def _stp_switch_connected(self, ev):
         dpid = ev.dp.id
         self.logger.info("STP: Switch connected with DPID %s", dpid)
