@@ -71,7 +71,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
                 'flow_tables': self.flow_stats            
             }
 
-            for dpid in self.datapaths.keys():
+            for dpid, dp in self.datapaths.items():
                 # populate latest vals
                 state["flow_tables"][dpid] = self.flow_stats.get(dpid, [])
                 state["port_stats"][dpid] = self.port_stats.get(dpid, [])
