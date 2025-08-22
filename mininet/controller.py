@@ -290,7 +290,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
 
 
     # event handler to handle port state change (built-in)
-    @set_ev_cls(stplib.EventPortStateChange, stplib.STP_EV_DISPATCHER)
+    @set_ev_cls(stplib.EventPortStateChange, MAIN_DISPATCHER)
     def _port_state_change_handler(self, ev):
         self.stp_port_state.setdefault(ev.dp.id, {})[ev.port_no] = ev.port_state
         dpid_str = dpid_lib.dpid_to_str(ev.dp.id)
