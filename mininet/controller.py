@@ -328,7 +328,7 @@ class IntentAPI(ControllerBase):
 
             if action_type == "install_flow":
                 switch = int(action["switch"])
-                dp = self.controller.datapaths.get(switch)
+                datapath = self.controller.datapaths.get(switch)
                 src_mac = action['src_mac']
                 dst_mac = action['dst_mac']
                 out_port = action['out_port'] or None
@@ -340,7 +340,7 @@ class IntentAPI(ControllerBase):
 
                 actions = [parser.OFPActionOutput(out_port)]
 
-                self.controller.add_flow(dp, 1, match, parser.OFPActionOutput(out_port))
+                self.controller.add_flow(datapath, 1, match, parser.OFPActionOutput(out_port))
                 result = "Flow added successfully"
 
             elif action_type == "delete_flow":
