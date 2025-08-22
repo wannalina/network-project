@@ -320,8 +320,7 @@ class IntentAPI(ControllerBase):
 
     @route('intent', '/intent/implement', methods=['POST'])
     def post_action(self, req, **kwargs):
-        body = req.json or {}
-        actions = body.get("action", [])
+        actions = req.json or []
         results = []
 
         for action in actions: 
