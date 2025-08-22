@@ -354,7 +354,7 @@ class IntentAPI(ControllerBase):
                             if a.get("type") == "output":
                                 of_actions.append(parser.OFPActionOutput(int(a["port"])))
                         if not of_actions:
-                            result = {"error": "no valid actions (need output ports)"}
+                            of_actions.append([])
                         else:
                             # (optional) validate ports exist and are up
                             # port_nums = [p["port_no"] for p in self.controller.port_desc_stats.get(switch, [])]
