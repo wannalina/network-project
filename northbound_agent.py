@@ -109,7 +109,7 @@ def build_query(user_intent, network_topology, network_state):
         ]
         ```
 
-        - Task is complete when a list of correct and complete JSON action objects is returned in the specified format, and validation has confirmed full compliance with all requirements. 
+        - Task is complete when a list of correct and complete JSON action objects is returned in the specified format (including datatypes), and validation has confirmed full compliance with all requirements. 
     """
 
     print("Processing query...")
