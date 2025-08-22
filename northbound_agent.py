@@ -127,6 +127,124 @@ def build_query(user_intent, network_topology, network_state):
         return None
 
 
+def build_confirmation_query(intent, json_object):
+    prompt = f"""
+        # Role
+        Act as an SDN orchestration validator that checks whether a proposed controller action JSON object correctly matches the network engineer’s intent.
+
+        # Task
+        Verify that the given JSON object:  
+        - Contains **all required fields** for the specified action type.  
+        - Contains **no extra or invalid fields**.  
+        - Adheres strictly to the allowed schema for that action.  
+        If the object is valid, return it unchanged. If it is invalid, return a corrected JSON object that complies with the schema and intent.
+
+        # Context
+        **Engineer’s intent:**  
+        {intent}  
+
+        **Proposed controller action (JSON):**  
+        {json_object}  
+
+        # Reasoning (checklist; do this internally)
+        - Identify which action type is intended.  
+        - Match the object’s fields against the schema for that action.  
+        - Ensure correct field names, types, and required attributes.  
+        - Remove any disallowed attributes.  
+        - If attributes are missing, add them with values derived from the intent.  
+        - Preserve JSON list structure — every response must be wrapped in a list.  
+
+        # Allowed action schemas
+        - **install_flow**  
+        ```json
+        [
+            {{
+                "action": "install_flow", 
+                "switch": <int>, 
+                "in_port": <int>,
+                "src_mac": "<MAC>", 
+                "dst_mac": "<MAC>", 
+                "actions": [{{"type": "output", "port": <int>}}]
+            }}
+        ]
+        ```
+
+        - **delete_flow**
+        ```json
+        [
+            {{
+                "action": "delete_flow",
+                "switch": <int>
+            }}
+        ]
+        ```
+
+        - **block_port / unblock_port**
+        ```json
+        [
+            {{
+                "action": "block_port" or "unblock_port", 
+                "switch": <int>, 
+                "port": <int>
+            }}
+        ]  
+        ```
+
+        - **request_port_stats**
+        ```json
+        [
+            {{
+                "action": "request_port_stats"
+            }}
+        ]
+        ```
+
+        - **host_location**
+        ```json
+        [
+            {{
+                "action": "host_location", 
+                "mac": "<MAC>"
+            }}
+        ]
+        ```
+
+        - ** trace_route**
+        ```json
+        [
+            {{
+                "action": "trace_route", 
+                "src_mac": "<MAC>", 
+                "dst_mac": "<MAC>"
+            }}
+        ]
+        ```
+
+        # Output format
+        Return only valid JSON (no prose, no commentary, no code fences). It must begin with ```json and end in ```.
+        - The object must be enclosed in a JSON list even if there is only one action.
+
+        # Stop conditions
+        - Do not add comments, explanations, or extra formatting.
+        - Do not output fields not listed in the schema.
+        - Task is complete when the JSON object matches both the engineer’s intent and the allowed schema.
+    """
+
+    print("Processing cofnirmation query...")
+    query_res = perform_query(prompt)
+
+    try:
+        # extract JSON object from response
+        if "```json" in query_res:
+            action = query_res.split("```json")[1].split("```")[0]
+            return json.loads(action)
+
+        return None
+    except Exception as e: 
+        print(f'Error with the confirmation query: {e}')
+        return None
+
+
 # POST action to controller and implement
 def apply_action(action): 
     # post to controller
@@ -157,6 +275,7 @@ def main():
         action = build_query(user_intent, topology, network_state)
         
         if action: 
+            action = build_confirmation_query(user_intent, action)
             doAction = input("\nEnter 'yes' to execute decision (otherwise return to start)")
 
             # if action allowed, save to history and execute
