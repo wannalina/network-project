@@ -318,113 +318,69 @@ class IntentAPI(ControllerBase):
         return Response(content_type='application/json', body=res_body)
 
 
-@route('intent', '/intent/implement', methods=['POST'])
-def post_action(self, req, **kwargs):
-    try:
-        body = req.json
-    except Exception:
-        return Response(status=400, content_type='application/json',
-                        body=b'{"results":[{"error":"invalid JSON body"}]}')
+    @route('intent', '/intent/implement', methods=['POST'])
+    def post_action(self, req, **kwargs):
+        actions = req.json or []
+        of_actions = []
+        results = []
 
-    if isinstance(body, list):
-        actions_in = body
-    elif isinstance(body, dict):
-        actions_in = body.get("action", [])
-        if not isinstance(actions_in, list):
-            return Response(status=400, content_type='application/json',
-                            body=b'{"results":[{"error":"`action` must be a list"}]}')
-    else:
-        return Response(status=400, content_type='application/json',
-                        body=b'{"results":[{"error":"unsupported payload type"}]}')
+        for action in actions: 
+            action_type = action.get("action")
 
-    results = []
+            if action_type == "install_flow":
+                switch = int(action["switch"])
+                datapath = self.controller.datapaths.get(switch)
+                src_mac = action['src_mac']
+                dst_mac = action['dst_mac']
+                parser = datapath.ofproto_parser
+                match = parser.OFPMatch(eth_src=src_mac, eth_dst=dst_mac)
 
-    for action in actions_in:
-        atype = (action or {}).get("action")
-        if not atype:
-            results.append({"error":"missing action type"})
-            continue
-
-        if atype == "install_flow":
-            try:
-                sw = int(action["switch"])
-                dp = self.controller.datapaths.get(sw)
-                if not dp:
-                    results.append({"error": f"switch {sw} not connected"})
-                    continue
-
-                parser = dp.ofproto_parser
-                src_mac = action["src_mac"]
-                dst_mac = action["dst_mac"]
-
-                in_port = action.get("in_port")
-                if in_port is None:
-                    in_port = self.controller.mac_to_port.get(sw, {}).get(src_mac)
-                if in_port is None:
-                    results.append({"error": "in_port missing and cannot be derived"})
-                    continue
-                in_port = int(in_port)
-
-                of_actions = []
-                acts_json = action.get("actions", [])
+                acts_json = action["actions"]
                 if isinstance(acts_json, dict):
                     acts_json = [acts_json]
 
                 for a in acts_json:
-                    if isinstance(a, dict) and (a.get("type") or a.get("action") or "").lower() == "output":
-                        port = a.get("port") or a.get("out_port")
-                        if port is not None:
-                            of_actions.append(parser.OFPActionOutput(int(port)))
+                    if isinstance(a, dict) and (a.get("type") or "").lower() == "output":
+                        port = a.get("port")
+                        if port is None:
+                            continue
+                        of_actions.append(parser.OFPActionOutput(int(port)))
 
                 if not of_actions:
                     out_port = action.get("out_port")
                     if out_port is not None:
                         of_actions = [parser.OFPActionOutput(int(out_port))]
 
-                if not of_actions:
-                    results.append({"error": "no valid actions (need at least one output port)"})
-                    continue
+                self.controller.add_flow(datapath, 1, match, of_actions)
+                result = "Flow added successfully"
 
-                match = parser.OFPMatch(in_port=in_port, eth_src=src_mac, eth_dst=dst_mac)
-                self.controller.add_flow(dp, 1, match, of_actions)
-                results.append({"ok": f"flow added on s{sw} in:{in_port} -> out:{getattr(of_actions[0],'port',None)}"})
-            except Exception as e:
-                results.append({"error": f"install_flow failed: {e}"})
+            elif action_type == "delete_flow":
+                switch = int(action['switch'])
+                datapath = self.controller.datapaths.get(switch)
+                self.controller.delete_flow(datapath)
+                result = "Flow deleted successfully"
 
-        elif atype == "delete_flow":
-            try:
-                sw = int(action["switch"])
-                dp = self.controller.datapaths.get(sw)
-                if not dp:
-                    results.append({"error": f"switch {sw} not connected"})
-                else:
-                    self.controller.delete_flow(dp)
-                    results.append({"ok":"flow(s) deleted"})
-            except Exception as e:
-                results.append({"error": f"delete_flow failed: {e}"})
+            elif action_type == "block_port":
+                switch = int(action['switch'])
+                port = int(action['port'])
+                result = self.controller.set_port_state(switch, port, disable=True)
 
-        elif atype == "block_port":
-            results.append(self.controller.set_port_state(int(action["switch"]), int(action["port"]), True))
+            elif action_type == "unblock_port":
+                switch = int(action['switch'])
+                port = int(action['port'])
+                result = self.controller.set_port_state(switch, port, disable=False)
 
-        elif atype == "unblock_port":
-            results.append(self.controller.set_port_state(int(action["switch"]), int(action["port"]), False))
+            elif action_type == "request_port_stats": 
+                result = self.controller.port_stats
 
-        elif atype == "request_port_stats":
-            sw = int(action.get("switch", 0))
-            port = action.get("port")
-            stats = self.controller.port_stats.get(sw, [])
-            if port is not None:
-                stats = [s for s in stats if s.get("port_no") == int(port)]
-            results.append(stats)
+            elif action_type == "host_location": 
+                result = self.controller.get_host_location(action)
 
-        elif atype == "host_location":
-            results.append(self.controller.get_host_location(action))
+            elif action_type == "trace_route": 
+                result = self.controller.trace_route(action)
 
-        elif atype == "trace_route":
-            results.append(self.controller.trace_route(action))
+            else: 
+                pass
 
-        else:
-            results.append({"error": f"unsupported action {atype}"})
-
-    return Response(content_type='application/json',
-                    body=json.dumps({"results": results}).encode('utf-8')) 
+            results.append(result)
+        return Response(content_type='application/json', body=json.dumps({"results": results}).encode('utf-8'))  
