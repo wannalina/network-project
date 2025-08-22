@@ -331,10 +331,14 @@ class IntentAPI(ControllerBase):
                 dp = self.controller.datapaths.get(switch)
                 src_mac = action['src_mac']
                 dst_mac = action['dst_mac']
-                in_port = int(action['in_port'])
-                out_port = int(action['out_port'])
+                out_port = action['out_port'] or None
                 parser = datapath.ofproto_parser
-                match = parser.OFPMatch(in_port=in_port, eth_src=src_mac, eth_dst=dst_mac)
+                match = parser.OFPMatch(eth_src=src_mac, eth_dst=dst_mac)
+                if out_port is None:
+                    self.logger.warning("Missing 'out_port' for install_flow action.")
+                    return
+
+                actions = [parser.OFPActionOutput(out_port)]
 
                 self.controller.add_flow(dp, 1, match, parser.OFPActionOutput(out_port))
                 result = "Flow added successfully"

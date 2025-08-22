@@ -84,7 +84,7 @@ def build_query(user_intent, network_topology, network_state):
         - The network topology is a description of the static switches, hosts, and links within the network  ("s" refers to switch and "h" refers to host):
             {network_topology}
 
-        - The network state shows datapath IDs (switches), STP config, port statistics, flow tables, etc. used for network diagnosis and context: 
+        - The network state shows switches, host tables, mac tables, port stats, stp port states, port description stats, and flow tables used for network diagnosis and context: 
             {network_state}
 
         - The user intent provides the objective that we want to achieve with the produced actions: 
@@ -99,7 +99,7 @@ def build_query(user_intent, network_topology, network_state):
         - Return the results as a properly formatted list of JSON objects with the following format:
         ```json 
         [
-            {{ "action": "install_flow", "switch": "0000000000000001", "src_mac": "00:00:00:00:00:01", "dst_mac": "00:00:00:00:00:04", "in_port": 2, "out_port": 3 }},
+            {{ "action": "install_flow", "switch": 1, "out_port": 1, "src_mac": "00:00:00:00:00:01", "dst_mac": "00:00:00:00:00:04" }},
             {{ "action": "delete_flow", "switch": 1 }},
             {{ "action": "block_port", "switch": 2, "port": 4 }},
             {{ "action": "unblock_port", "switch": 3, "port": 4 }},
@@ -160,8 +160,7 @@ def build_confirmation_query(intent, json_object):
         [
             {{
                 "action": "install_flow", 
-                "switch": <int>, 
-                "in_port": <int>,
+                "switch": <int>,
                 "out_port": <int>,
                 "src_mac": "<MAC>", 
                 "dst_mac": "<MAC>", 
