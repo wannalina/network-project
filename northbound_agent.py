@@ -99,7 +99,7 @@ def build_query(user_intent, network_topology, network_state):
         - Return the results as a properly formatted list of JSON objects with the following format:
         ```json 
         [
-            {{ "action": "install_flow", "switch": "0000000000000001", "src_mac": "00:00:00:00:00:01", "dst_mac": "00:00:00:00:00:04", "in_port": 2 }},
+            {{ "action": "install_flow", "switch": "0000000000000001", "src_mac": "00:00:00:00:00:01", "dst_mac": "00:00:00:00:00:04", "in_port": 2, "out_port": 3 }},
             {{ "action": "delete_flow", "switch": 1 }},
             {{ "action": "block_port", "switch": 2, "port": 4 }},
             {{ "action": "unblock_port", "switch": 3, "port": 4 }},
@@ -162,6 +162,7 @@ def build_confirmation_query(intent, json_object):
                 "action": "install_flow", 
                 "switch": <int>, 
                 "in_port": <int>,
+                "out_port": <int>,
                 "src_mac": "<MAC>", 
                 "dst_mac": "<MAC>", 
                 "actions": [{{"type": "output", "port": <int>}}]

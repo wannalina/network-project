@@ -329,39 +329,15 @@ class IntentAPI(ControllerBase):
             if action_type == "install_flow":
                 switch = int(action["switch"])
                 dp = self.controller.datapaths.get(switch)
-                if not dp:
-                    result = {"error": f"switch {switch} not connected"}
-                else:
-                    parser, ofp = dp.ofproto_parser, dp.ofproto
+                src_mac = action['src_mac']
+                dst_mac = action['dst_mac']
+                in_port = int(action['in_port'])
+                out_port = int(action['out_port'])
+                parser = datapath.ofproto_parser
+                match = parser.OFPMatch(in_port=in_port, eth_src=src_mac, eth_dst=dst_mac)
 
-                    # resolve in_port (use provided value or derive from MAC table)
-                    in_port = action.get("in_port")
-                    if in_port is None:
-                        in_port = self.controller.mac_to_port.get(switch, {}).get(action["src_mac"])
-                    if in_port is None:
-                        result = {"error": "in_port missing and cannot be derived"}
-                    else:
-                        in_port = int(in_port)
-
-                        # build match
-                        match = parser.OFPMatch(in_port=in_port,
-                                                eth_src=action["src_mac"],
-                                                eth_dst=action["dst_mac"])
-
-                        # convert JSON actions → OFP actions
-                        of_actions = []
-                        for a in action.get("actions", []):
-                            if a.get("type") == "output":
-                                of_actions.append(parser.OFPActionOutput(int(a["port"])))
-                        if not of_actions:
-                            of_actions.append([])
-                        else:
-                            # (optional) validate ports exist and are up
-                            # port_nums = [p["port_no"] for p in self.controller.port_desc_stats.get(switch, [])]
-                            # if any(p not in port_nums for p in [in_port] + [x.port for x in of_actions]): ...
-
-                            self.controller.add_flow(dp, 1, match, of_actions)
-                            result = "Flow added successfully"
+                self.controller.add_flow(dp, 1, match, parser.OFPActionOutput(out_port))
+                result = "Flow added successfully"
 
             elif action_type == "delete_flow":
                 switch = int(action['switch'])
