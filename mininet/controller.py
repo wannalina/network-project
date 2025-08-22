@@ -321,6 +321,7 @@ class IntentAPI(ControllerBase):
     @route('intent', '/intent/implement', methods=['POST'])
     def post_action(self, req, **kwargs):
         actions = req.json or []
+        of_actions = []
         results = []
 
         for action in actions: 
@@ -331,15 +332,26 @@ class IntentAPI(ControllerBase):
                 datapath = self.controller.datapaths.get(switch)
                 src_mac = action['src_mac']
                 dst_mac = action['dst_mac']
-                out_port = action['out_port'] or None
                 parser = datapath.ofproto_parser
                 match = parser.OFPMatch(eth_src=src_mac, eth_dst=dst_mac)
-                if out_port is None:
-                    return
 
-                actions = [parser.OFPActionOutput(out_port)]
+                acts_json = action["actions"]
+                if isinstance(acts_json, dict):
+                    acts_json = [acts_json]
 
-                self.controller.add_flow(datapath, 1, match, actions)
+                for a in acts_json:
+                    if isinstance(a, dict) and (a.get("type") or "").lower() == "output":
+                        port = a.get("port")
+                        if port is None:
+                            continue
+                        of_actions.append(parser.OFPActionOutput(int(port)))
+
+                if not of_actions:
+                    out_port = action.get("port")
+                    if out_port is not None:
+                        of_actions = [parser.OFPActionOutput(int(out_port))]
+
+                self.controller.add_flow(datapath, 1, match, of_actions)
                 result = "Flow added successfully"
 
             elif action_type == "delete_flow":
