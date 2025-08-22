@@ -49,58 +49,6 @@ def get_network_state():
         return None
 
 
-# store previous action in chat history
-def save_chat_history(action):
-    chat_entry = {
-        "response": action
-    }
-
-    # load existing entries
-    if os.path.exists(f'logs/CHAT_HISTORY_FILE'):
-        try:
-            with open(f'logs/CHAT_HISTORY_FILE', 'r') as f:
-                history = json.load(f)
-                if not isinstance(history, list):
-                    history = []
-        except json.JSONDecodeError:
-            history = []
-    else:
-        history = []
-
-    # add new entry to list
-    history.append(chat_entry)
-
-    try:
-        # add back to json file with new entry
-        with open(CHAT_HISTORY_FILE, 'w') as f:
-            json.dump(history, f, indent=2)
-    except Exception as e:
-        print("Error saving chat history:", e)
-
-
-# fetch chat history for LLM context
-def get_chat_history():
-    try: 
-        with open(f'logs/{CHAT_HISTORY_FILE}', 'r') as f:
-            chat_history = json.load(f)
-        return chat_history
-    except Exception as e: 
-        print(f'Error retrieving chat history: {e}')
-        return None
-
-# delete LLM chat history upon shutdown
-def delete_chat_history():
-    try:
-        if os.path.exists(CHAT_HISTORY_FILE):
-            with open(CHAT_HISTORY_FILE, 'w') as f:
-                f.truncate(0)
-            print("Chat history cleared.")
-        else:
-            print("Chat history file does not exist.")
-    except Exception as e:
-        print("Error clearing chat history:", e)
-
-
 # perform LLM query based on given prompt
 def perform_query(prompt):
     try: 
@@ -108,7 +56,7 @@ def perform_query(prompt):
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=20000,
-            temperature=0.7,
+            temperature=0,
             messages=[{"role": "user", "content": [{"type": "text", "text": prompt}]}]
         )
 
@@ -122,76 +70,46 @@ def perform_query(prompt):
 
 
 # build the query to get LLM response
-def build_query(user_intent, network_topology, network_state, chat_history):
+def build_query(user_intent, network_topology, network_state):
     prompt = f"""
-        You are an SDN (Software Defined Networking) orchestration assistant that interprets user intents and translates them into actionable instructions for an SDN controller. You are currently working with a Ryu-based OpenFlow 1.3 controller managing a Mininet topology using Spanning Tree Protocol (STP) for loop prevention. The controller supports flow installation, port state modification, and host tracking.
+        Act as an SDN network expert focused on providing your colleague insturctions on managing an SDN network operated by an RYU simple switch stp controller.
 
-        You will be given:
+        - Begin with a conscise checklist (2-5 bullets) of the steps you will follow to complete the task, focusing on high-level description rather than technical details.
+        - Produce a precise action instruction object (in JSON format) that can be sent directly to the SDN controller for implementation in the network.
+        - Ensure that each action is precise and complete. The object must solve the user intent in its entirety.
 
-        1. The current **network topology** (including switches, hosts with IP and MAC addresses, and links)
-        2. The current **network state** (including datapath IDs, STP config, port statistics, flow tables, etc.)
-        3. The **chat history** between the user and the SDN system
-        4. The current **user intent** (e.g. block traffic, verify host location, configure port, install flow, etc.)
+        - Avoid recommending flows on stp-blocked ports, assuming MAC-to-port mappings that do not exist, and issuing actions to non-existent datapaths.
 
-        Your task is to:
-        - Carefully analyze the network topology and state
-        - Synthesize *all relevant details* (host/switch locations, port states, MAC learning, etc.)
-        - Interpret the **user intent accurately**
-        - Produce a minimal and precise **action instruction object** (in JSON format) that can be sent to the SDN controller for execution
 
-        Be cautious to avoid:
-        - Recommending flows on STP-blocked ports
-        - Assuming MAC-to-port mappings that do not exist
-        - Issuing actions on non-existent datapaths or disconnected hosts
+        - The network topology is a description of the static switches, hosts, and links within the network  ("s" refers to switch and "h" refers to host):
+            {network_topology}
 
-        ### Step-by-step reasoning and validation is required before suggesting any instruction.
+        - The network state shows datapath IDs (switches), STP config, port statistics, flow tables, etc. used for network diagnosis and context: 
+            {network_state}
 
-        ---
+        - The user intent provides the objective that we want to achieve with the produced actions: 
+            {user_intent}
 
-        #### Network Topology:
-        ```json
-        {{{network_topology}}}
-        ```
 
-        ### Network State:
-        ```json
-        {{{network_state}}}
-        ```
+        - Internally analyze and understand the user intent, network topology, and current network state.
+        - Internally vet all suggested actions to quarantee that they are complete and precisely address the user intent.
+        - Optimize for clarity, concise presentation, and practical value.
 
-        ### Chat History:
-        ```json
-        {{{chat_history}}}
-        ```
 
-        ### User Intent:
-        {{{user_intent}}}
-
-        ---
-
-        Now, based on the above information:
-        1. Reason through the current state of the network
-        2. Determine if the user's request is valid and can be fulfilled given current constraints
-        3. If it is valid, return a JSON object representing the exact action(s) the SDN controller should perform
-        4. If it is invalid or incomplete, return a structured explanation with what is missing or inconsistent
-
-        Output format example:
+        - Return the results as a properly formatted list of JSON objects with the following format:
         ```json 
         [
-            {{
-                "action": "install_flow",
-                "switch": "0000000000000001",
-                "src_mac": "00:00:00:00:00:01",
-                "dst_mac": "00:00:00:00:00:04",
-                "out_port": 2
-            }}
+            {{ "action": "install_flow", "switch": "0000000000000001", "src_mac": "00:00:00:00:00:01", "dst_mac": "00:00:00:00:00:04", "in_port": 2 }},
+            {{ "action": "delete_flow", "switch": 1 }},
+            {{ "action": "block_port", "switch": 2, "port": 4 }},
+            {{ "action": "unblock_port", "switch": 3, "port": 4 }},
+            {{ "action": "request_port_stats" }}, 
+            {{ "action": host_location", "mac": "00:00:00:00:00:01" }}
+            {{ "action": "trace_route", "src_mac": "00:00:00:00:00:02", "dst_mac": "00:00:00:00:00:06" }}
         ]
         ```
-        OR (if the intent is invalid):
-        ```json
-        {
-            "error": "Cannot fulfill request — MAC 00:00:00:00:00:04 is not currently mapped to any known port in the network."
-        }
-        ```
+
+        - Task is complete when a list of correct and complete JSON action objects is returned in the specified format, and validation has confirmed full compliance with all requirements. 
     """
 
     print("Processing query...")
@@ -235,22 +153,17 @@ def main():
         # get context for LLM
         topology = get_network_topology()
         network_state = get_network_state()
-        chat_history = get_chat_history()
 
-        if topology and network_state and chat_history:
-            action = build_query(user_intent, topology, network_state, chat_history)
+        action = build_query(user_intent, topology, network_state)
         
         if action: 
             doAction = input("\nEnter 'yes' to execute decision (otherwise return to start)")
 
             # if action allowed, save to history and execute
             if doAction.lower() == 'yes':
-                save_chat_history(action)
                 apply_action(action)
             else: 
                 print("No action available or action not needed.")
-
-    delete_chat_history()
 
 if __name__ == "__main__":
     main()
