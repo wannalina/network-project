@@ -339,7 +339,7 @@ class IntentAPI(ControllerBase):
 
                 actions = [parser.OFPActionOutput(out_port)]
 
-                self.controller.add_flow(datapath, 1, match, parser.OFPActionOutput(out_port))
+                self.controller.add_flow(datapath, 1, match, actions)
                 result = "Flow added successfully"
 
             elif action_type == "delete_flow":
