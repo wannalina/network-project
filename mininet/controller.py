@@ -335,16 +335,6 @@ class IntentAPI(ControllerBase):
                 datapath = self.controller.datapaths.get(switch)
                 parser = datapath.ofproto_parser
                 match = parser.OFPMatch(in_port=in_port, eth_src=src_mac, eth_dst=dst_mac)
-                of_actions = []
-                for a in action.get('actions', []):
-                    if a.get('type') == 'output':
-                        of_actions.append(parser.OFPActionOutput(int(a['port'])))
-
-                if not of_actions:
-                    result = {"error": "No valid actions provided"}
-                else:
-                    self.controller.add_flow(datapath, 1, match, of_actions)
-                    result = "Flow added successfully"
 
                 self.controller.add_flow(datapath, 1, match, action['actions'])
                 result = "Flow added successfully"
