@@ -253,7 +253,7 @@ def apply_action(action):
 
     # print response in readable format
     print("\n\nController response:\n\n")
-    for reply in response.get("status", []):
+    for reply in response.get("results", []):
         print(f"{reply}\n")
 
 
