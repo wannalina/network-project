@@ -335,7 +335,6 @@ class IntentAPI(ControllerBase):
                 parser = datapath.ofproto_parser
                 match = parser.OFPMatch(eth_src=src_mac, eth_dst=dst_mac)
                 if out_port is None:
-                    self.logger.warning("Missing 'out_port' for install_flow action.")
                     return
 
                 actions = [parser.OFPActionOutput(out_port)]
