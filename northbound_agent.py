@@ -76,6 +76,7 @@ def build_query(user_intent, network_topology, network_state):
 
         - Begin with a conscise checklist (2-5 bullets) of the steps you will follow to complete the task, focusing on high-level description rather than technical details.
         - Produce a precise action instruction object (in JSON format) that can be sent directly to the SDN controller for implementation in the network.
+          However, if the suitable action in "host_location", only provide the answer in natural language by analyzing the network topology. Do not create an instruction object.
         - Ensure that each action is precise and complete. The object must solve the user intent in its entirety.
 
         - Avoid recommending flows on stp-blocked ports, assuming MAC-to-port mappings that do not exist, and issuing actions to non-existent datapaths.
@@ -103,11 +104,12 @@ def build_query(user_intent, network_topology, network_state):
             {{ "action": "delete_flow", "switch": 1 }},
             {{ "action": "block_port", "switch": 2, "port": 4 }},
             {{ "action": "unblock_port", "switch": 3, "port": 4 }},
-            {{ "action": "check_port_status", "switch": 2, "port": 5 }}, 
-            {{ "action": host_location", "mac": "00:00:00:00:00:01" }}
+            {{ "action": "check_port_status", "switch": 2, "port": 5 }},
             {{ "action": "trace_route", "src_mac": "00:00:00:00:00:02", "dst_mac": "00:00:00:00:00:06" }}
         ]
         ```
+        OR
+        "Host 00:00:00:00:00:01 is located at switch 1."
 
         - Task is complete when a list of correct and complete JSON action objects is returned in the specified format (including datatypes), and validation has confirmed full compliance with all requirements. 
     """
@@ -119,9 +121,9 @@ def build_query(user_intent, network_topology, network_state):
         # extract JSON object from response
         if "```json" in query_res:
             action = query_res.split("```json")[1].split("```")[0]
-            return json.loads(action)
+            return json.loads(action), True
 
-        return None
+        return query_res, False
     except Exception as e: 
         print(f'Failed to parse JSON object from query response.')
         return None
@@ -274,9 +276,9 @@ def main():
         topology = get_network_topology()
         network_state = get_network_state()
 
-        action = build_query(user_intent, topology, network_state)
-        
-        if action: 
+        action, is_json = build_query(user_intent, topology, network_state)
+
+        if action and is_json: 
             action = build_confirmation_query(user_intent, action)
             doAction = input("\nEnter 'yes' to execute decision (otherwise return to start)")
 

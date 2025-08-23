@@ -150,18 +150,6 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
             return f'[Port Status] failed: Port {switch_id}-eth{port_no} not found.'
 
 
-    # get host location in the network
-    def get_host_location(self, action_obj):
-        try:
-            mac = action_obj["mac"]
-            for dpid, macs in self.mac_to_port.items():
-                if mac in macs:
-                    return f"Host {mac} is at switch {dpid} port {macs[mac]}"
-            return f"Host {mac} not found in MAC table"
-        except Exception as e:
-            return f"Error locating host: {e}"
-
-
     # trace packet route
     def trace_route(self, action_obj):
         try:
@@ -397,9 +385,6 @@ class IntentAPI(ControllerBase):
                 switch = int(action['switch'])
                 port = int(action['port'])
                 result = self.controller.check_port_status(switch, port)
-
-            elif action_type == "host_location": 
-                result = self.controller.get_host_location(action)
 
             elif action_type == "trace_route": 
                 result = self.controller.trace_route(action)
