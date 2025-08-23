@@ -116,7 +116,7 @@ def build_query(user_intent, network_topology, network_state):
         - Task is complete when a list of correct and complete JSON action objects is returned in the specified format (including datatypes), and validation has confirmed full compliance with all requirements. 
     """
 
-    print("Processing query...")
+    print("Processing decision query...")
     query_res = perform_query(prompt)
 
     try:
@@ -236,7 +236,7 @@ def build_confirmation_query(intent, json_object):
         - Task is complete when the JSON object matches both the engineer’s intent and the allowed schema.
     """
 
-    print("Processing cofnirmation query...")
+    print("Processing confirmation query...")
     query_res = perform_query(prompt)
 
     try:
