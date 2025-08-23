@@ -103,7 +103,7 @@ def build_query(user_intent, network_topology, network_state):
             {{ "action": "delete_flow", "switch": 1 }},
             {{ "action": "block_port", "switch": 2, "port": 4 }},
             {{ "action": "unblock_port", "switch": 3, "port": 4 }},
-            {{ "action": "request_port_stats" }}, 
+            {{ "action": "check_port_status", "switch": 2, "port": 5 }}, 
             {{ "action": host_location", "mac": "00:00:00:00:00:01" }}
             {{ "action": "trace_route", "src_mac": "00:00:00:00:00:02", "dst_mac": "00:00:00:00:00:06" }}
         ]
@@ -190,11 +190,13 @@ def build_confirmation_query(intent, json_object):
         ]  
         ```
 
-        - **request_port_stats**
+        - **check_port_status**
         ```json
         [
             {{
-                "action": "request_port_stats"
+                "action": "check_port_status",
+                "switch": <int>,
+                "port": <int>
             }}
         ]
         ```

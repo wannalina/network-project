@@ -127,6 +127,29 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
             return f"Error setting port state: {e}"
 
 
+    #! function to check port status (implements LLM decision)
+    def check_port_status(self, switch_id, port_no):
+        try:
+            # get port stats
+            ports = self.port_desc_stats.get(switch_id, [])
+
+            found = False
+            for p in ports:
+                # if port found in stats, get state
+                if p["port_no"] == port_no:
+                    found = True
+                    print(f"[Port Status] {switch_id}-eth{port_no} — state: {p['state']}, config: {p['config']}.")
+                    return f'[Port Status] successful: Port {switch_id}-eth{port_no} -- state: {p["state"]}, config: {p["config"]}.'
+
+            if not found:
+                print(f"[Port Status] {switch_id}-eth{port_no} not found.")
+                return f'[Port Status] failed: Port {switch_id}-eth{port_no} not found.'
+
+        except Exception as e:
+            self.logger.info(f"Error checking port status: {e}")
+            return f'[Port Status] failed: Port {switch_id}-eth{port_no} not found.'
+
+
     # get host location in the network
     def get_host_location(self, action_obj):
         try:
@@ -370,8 +393,10 @@ class IntentAPI(ControllerBase):
                 port = int(action['port'])
                 result = self.controller.set_port_state(switch, port, disable=False)
 
-            elif action_type == "request_port_stats": #! CHANGE TO CHECK PORT STATUS
-                result = self.controller.port_stats
+            elif action_type == "check_port_status":
+                switch = int(action['switch'])
+                port = int(action['port'])
+                result = self.controller.check_port_status(switch, port)
 
             elif action_type == "host_location": 
                 result = self.controller.get_host_location(action)
