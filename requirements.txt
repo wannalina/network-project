@@ -1,4 +1,4 @@
-anthropic==
+anthropic==0.60.0
 mininet==2.3.0dev6
 requests==2.32.4
 ryu==4.43

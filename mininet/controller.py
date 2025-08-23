@@ -370,7 +370,7 @@ class IntentAPI(ControllerBase):
                 port = int(action['port'])
                 result = self.controller.set_port_state(switch, port, disable=False)
 
-            elif action_type == "request_port_stats": 
+            elif action_type == "request_port_stats": #! CHANGE TO CHECK PORT STATUS
                 result = self.controller.port_stats
 
             elif action_type == "host_location": 
