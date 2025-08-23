@@ -76,7 +76,7 @@ def build_query(user_intent, network_topology, network_state):
 
         - Begin with a conscise checklist (2-5 bullets) of the steps you will follow to complete the task, focusing on high-level description rather than technical details.
         - Produce a precise action instruction object (in JSON format) that can be sent directly to the SDN controller for implementation in the network.
-          However, if the suitable action in "host_location", only provide the answer in natural language by analyzing only the network topology. Do not create an instruction object.
+          However, if the suitable action in "host_location", only provide the answer as a concise sentence by analyzing only the network topology. Do not create an instruction object.
         - Ensure that each action is precise and complete. The object must solve the user intent in its entirety.
 
         - Avoid recommending flows on stp-blocked ports, assuming MAC-to-port mappings that do not exist, and issuing actions to non-existent datapaths.
