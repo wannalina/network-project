@@ -150,34 +150,6 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
             return f'[Port Status] failed: Port {switch_id}-eth{port_no} not found.'
 
 
-    # trace packet route
-    def trace_route(self, action_obj):
-        try:
-            src = action_obj.get("src_mac")
-            dst = action_obj.get("dst_mac")
-            if not src or not dst:
-                return "Missing source or destination MAC"
-
-            trace = []
-            visited = set()
-            current_mac = src
-
-            while current_mac in visited:
-                break  # avoid loops
-
-            for dpid, macs in self.mac_to_port.items():
-                if current_mac in macs:
-                    trace.append({"switch": dpid, "port": macs[current_mac]})
-                    visited.add(current_mac)
-                    if current_mac == dst:
-                        break
-            if not trace:
-                return f"Unable to trace route from {src} to {dst}"
-            return trace
-        except Exception as e:
-            return f"Error tracing route: {e}"
-
-
     # event handler to set up stp config dynamically (called upon switch connection event)
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def _stp_switch_connected(self, ev):
@@ -385,9 +357,6 @@ class IntentAPI(ControllerBase):
                 switch = int(action['switch'])
                 port = int(action['port'])
                 result = self.controller.check_port_status(switch, port)
-
-            elif action_type == "trace_route": 
-                result = self.controller.trace_route(action)
 
             else: 
                 pass
