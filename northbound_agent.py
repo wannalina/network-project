@@ -9,7 +9,6 @@ import json
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 CONTROLLER_URL = os.getenv("CONTROLLER_API_URL")
-CHAT_HISTORY_FILE = os.getenv("CHAT_HISTORY_FILE")
 
 # init anthropic client (LLM)
 client = anthropic.Anthropic(api_key=API_KEY)
