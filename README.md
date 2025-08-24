@@ -130,7 +130,7 @@ Although some limitations still exist when asking the model very general questio
 
 
 #### What kinds of questions can I ask PatchHunter?
-PatchHunter takes the user's queries as natural language questions or commands. These questions/commands may relate to diagnosing problems in the network, such as congestion or misconfigurations, locating specific hosts, checking port statuses or changing their states, and routing -related requests. You may ask questions like: 
+PatchHunter takes the user's queries as natural language questions or commands. These questions/commands may relate to diagnosing problems in the network, such as congestion or misconfigurations, locating specific hosts, checking port statuses or changing their states, and routing -related requests. Generally, the LLM performs the best in the following loosely defined categories: **installing / removing flows, changing port states, checking port status, checking host location in the network, and tracing packet routes**. You may ask questions like: 
 - "Reconfigure flows such that h3 and h4 cannot communicate."
 - "Reconfigure flows such that h3 and h4 can communicate again."
 - "Where is host h5 in the network?" 
@@ -141,7 +141,7 @@ PatchHunter takes the user's queries as natural language questions or commands. 
 
 Questions, such as, "Can you detect any anomalies in the network?" or "What actions would you recommend for improving the current state of the network?" are not advised as Claude Sonnet 4 is a general-purpose LLM, which is not trained for network management. This means that it may encounter difficulties in interpreting questions or commands that lack clear intent, forcing the model to infer a lot on its own, which can lead to misdiagnosis as well as unnecessary or even incorrect actions. Although PatchHunter has been tested extensively and generally performs well, it may still occasionally make erroneous assumptions. Therefore, it is strongly recommended to keep questions and commands specific and actionable as shown in the examples above.
 
-#### What is included in the network snapshot and why?
+#### What is included in the network snapshot?
 Each network snapshot includes the following, aggregated from all active switches: a list of switch IDs, the MAC table (mac_to_port), the host table (per-MAC location), port statistics, port description stats, STP port states, and flow stats. Although more network components can be additionally measured, these components are specifically chosen as they provide a sufficient picture of the network while still considering the cost and accuracy trade-offs of passing large network state objects to an LLM model **(It is more useful to ask an LLM to interpret a short network snapshot even if it contains less data as it can easily get confused when overwhelmed with large data volumes)**. 
 The currently provided data allows the LLM to determine the following: 
 - **Switches:** Which datapaths are currently registered and available for actions.
