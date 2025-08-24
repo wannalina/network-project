@@ -281,7 +281,7 @@ def main():
 
         if action and is_json: 
             action = build_confirmation_query(user_intent, action)
-            doAction = input("\nEnter 'yes' to execute decision (otherwise return to start)")
+            doAction = input("\n\nEnter 'yes' to execute decision (otherwise return to start):\n")
 
             # if action allowed, save to history and execute
             if doAction.lower() == 'yes':

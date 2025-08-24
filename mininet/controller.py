@@ -1,6 +1,5 @@
 # this controller is adapted from the ryu simple_switch_13_step.py
 
-import json
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
@@ -13,8 +12,9 @@ from ryu.app import simple_switch_13
 from ryu.app.wsgi import ControllerBase, route
 from ryu.app.wsgi import WSGIApplication
 from webob import Response
+import json
 
-
+# SDN controller; extends RYU SimpleSwitch13 with added stp
 class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
     _CONTEXTS = {
@@ -24,14 +24,15 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
-        self.mac_to_port = {}
-        self.datapaths = {}
-        self.host_table = {}
-        self.port_stats = {}
-        self.port_desc_stats = {}
-        self.flow_stats = {}   
-        self.stp_port_state = {}     
+        self.mac_to_port = {}   # mac-to-port mapping (packet_in)
+        self.datapaths = {}     # switches
+        self.host_table = {}    # host attachment to switch
+        self.port_stats = {}    # port counters
+        self.port_desc_stats = {} # operational states / features of ports
+        self.flow_stats = {}    # flow entries
+        self.stp_port_state = {}  # stp port states
 
+        # inject stp and wsgi contexts
         self.stp = kwargs['stplib']
         wsgi = kwargs['wsgi']
         wsgi.register(IntentAPI, {'controller': self})
@@ -40,7 +41,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
             'bridge': {'priority': 0x8000},
         }
 
-    #! function to retrieve network state data (custom)
+    # function to retrieve network state data
     def get_network_state(self):
         try: 
             # iterate through datapaths to get flow entries
@@ -84,11 +85,12 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
             return None
 
 
-    # function to delete flow entries (built-in)
+    # function to delete flow entries
     def delete_flow(self, datapath):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
+        # loop through known dsts; delete matching flows
         for dst in self.mac_to_port[datapath.id].keys():
             match = parser.OFPMatch(eth_dst=dst)
             mod = parser.OFPFlowMod(
@@ -98,7 +100,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
             datapath.send_msg(mod)
 
 
-    # change port state (enable/disable)
+    # function to change port state
     def set_port_state(self, dpid, port, disable=True):
         try:
             datapath = self.datapaths.get(dpid)
@@ -108,9 +110,16 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
             ofproto = datapath.ofproto
             parser = datapath.ofproto_parser
 
-            config = ofproto.OFPPC_PORT_DOWN if disable else 0
+            # if disable, set OFPPC_PORT_DOWN to; else clear
+            if disable:
+                config = ofproto.OFPPC_PORT_DOWN
+                state = "disabled"
+            else: 
+                config = 0
+                state = "enabled"
             mask = ofproto.OFPPC_PORT_DOWN
 
+            # send request
             req = parser.OFPPortMod(
                 datapath=datapath,
                 port_no=port,
@@ -120,14 +129,14 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
                 advertise=0
             )
             datapath.send_msg(req)
-            state = "disabled" if disable else "enabled"
+
             return f"Port {port} on switch {dpid} has been {state}"
 
         except Exception as e:
             return f"Error setting port state: {e}"
 
 
-    #! function to check port status (implements LLM decision)
+    # function to check port status
     def check_port_status(self, switch_id, port_no):
         try:
             # get port stats
@@ -135,7 +144,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
 
             found = False
             for p in ports:
-                # if port found in stats, get state
+                # if port found in stats, get port state
                 if p["port_no"] == port_no:
                     found = True
                     print(f"[Port Status] {switch_id}-eth{port_no} — state: {p['state']}, config: {p['config']}.")
@@ -156,7 +165,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
         dpid = ev.dp.id
         self.logger.info("STP: Switch connected with DPID %s", dpid)
 
-        # Set dynamic STP config per switch
+        # set dynamic STP config per switch
         if dpid == dpid_lib.str_to_dpid('0000000000000001'):
             config = {'bridge': {'priority': 0x8000}}
         elif dpid == dpid_lib.str_to_dpid('0000000000000002'):
@@ -164,17 +173,19 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
         else:
             config = self.base_stp_config
 
-        # Apply config
+        # apply config
         self.stp.set_config({dpid: config})
         self.logger.info("STP config applied to DPID %s: %s", dpid, config)
 
 
+    # event handler to parse each flow entry to a dict
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_reply_handler(self, ev):
         dpid = ev.msg.datapath.id
         flows = []
         for stat in ev.msg.body:
             actions = []
+            # get output ports
             for inst in stat.instructions:
                 if hasattr(inst, "actions"):
                     for a in inst.actions:
@@ -190,19 +201,21 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
         self.flow_stats[dpid] = flows
 
 
+    # event handler to get port description stats into dict
     @set_ev_cls(ofp_event.EventOFPPortDescStatsReply, MAIN_DISPATCHER)
     def _port_desc_stats_reply_handler(self, ev):
         dpid = ev.msg.datapath.id
         self.port_desc_stats[dpid] = [vars(p) for p in ev.msg.body]
 
 
+    # event handler to get per-port counters
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def _port_stats_reply_handler(self, ev):
         dpid = ev.msg.datapath.id
         self.port_stats[dpid] = [vars(stat) for stat in ev.msg.body]
 
 
-    # event handler to handle packet_in event (built-in)
+    # event handler to handle packet_in event
     @set_ev_cls(stplib.EventPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         msg = ev.msg
@@ -211,6 +224,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
         parser = datapath.ofproto_parser
         in_port = msg.match['in_port']
 
+        # parse eth header
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
@@ -226,6 +240,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
         self.mac_to_port[dpid][src] = in_port
         self.host_table[src] = {"dpid": dpid, "port": in_port}
 
+        # decide egress port
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
         else:
@@ -238,6 +253,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
             self.add_flow(datapath, 1, match, actions)
 
+        # send packet out
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
@@ -246,7 +262,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
                                 in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
 
-    # event handler to handle topology change (built-in)
+    # event handler to handle topology change
     @set_ev_cls(stplib.EventTopologyChange, MAIN_DISPATCHER)
     def _topology_change_handler(self, ev):
         dp = ev.dp
@@ -259,6 +275,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
             del self.mac_to_port[dp.id]
 
 
+    # event handler to track datapaths
     @set_ev_cls(ofp_event.EventOFPStateChange, [MAIN_DISPATCHER, DEAD_DISPATCHER])
     def _state_change_handler(self, ev):
         datapath = ev.datapath
@@ -272,7 +289,7 @@ class SimpleSwitch13(simple_switch_13.SimpleSwitch13):
                 self.datapaths.pop(datapath.id, None)
 
 
-    # event handler to handle port state change (built-in)
+    # event handler to handle port state change
     @set_ev_cls(stplib.EventPortStateChange, MAIN_DISPATCHER)
     def _port_state_change_handler(self, ev):
         self.stp_port_state.setdefault(ev.dp.id, {})[ev.port_no] = ev.port_state
@@ -294,21 +311,25 @@ class IntentAPI(ControllerBase):
         self.controller = data['controller']
 
 
+    # route to fetch current network state
     @route('intent', '/intent/get-state', methods=['GET'])
     def get_state(self, req, **kwargs):
         state = self.controller.get_network_state()
+
         res_body = json.dumps(state).encode('utf-8')
         return Response(content_type='application/json', body=res_body)
 
 
+    # route to implement new actions in controller
     @route('intent', '/intent/implement', methods=['POST'])
     def post_action(self, req, **kwargs):
         actions = req.json or []
         of_actions = []
         results = []
 
+        # loop through all proposed actions
         for action in actions: 
-            action_type = action.get("action")
+            action_type = action.get("action")  # get action type
 
             if action_type == "install_flow":
                 switch = int(action["switch"])
@@ -316,12 +337,16 @@ class IntentAPI(ControllerBase):
                 src_mac = action['src_mac']
                 dst_mac = action['dst_mac']
                 parser = datapath.ofproto_parser
+
+                # match on src/dst MAC addresses
                 match = parser.OFPMatch(eth_src=src_mac, eth_dst=dst_mac)
 
+                # normalize actions to a list of dicts
                 acts_json = action["actions"]
                 if isinstance(acts_json, dict):
                     acts_json = [acts_json]
 
+                # build OF output actions
                 for a in acts_json:
                     if isinstance(a, dict) and (a.get("type") or "").lower() == "output":
                         port = a.get("port")
@@ -334,13 +359,13 @@ class IntentAPI(ControllerBase):
                     if out_port is not None:
                         of_actions = [parser.OFPActionOutput(int(out_port))]
 
-                self.controller.add_flow(datapath, 1, match, of_actions)
+                self.controller.add_flow(datapath, 1, match, of_actions)    # add flow
                 result = "Flow added successfully"
 
             elif action_type == "delete_flow":
                 switch = int(action['switch'])
                 datapath = self.controller.datapaths.get(switch)
-                self.controller.delete_flow(datapath)
+                self.controller.delete_flow(datapath)   # delete flow
                 result = "Flow deleted successfully"
 
             elif action_type == "block_port":
@@ -361,5 +386,5 @@ class IntentAPI(ControllerBase):
             else: 
                 pass
 
-            results.append(result)
+            results.append(result)  # append each result to results list for response
         return Response(content_type='application/json', body=json.dumps({"results": results}).encode('utf-8'))  
